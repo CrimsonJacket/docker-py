@@ -69,9 +69,23 @@ class UnixHTTPAdapter(BaseHTTPAdapter):
         self.timeout = timeout
         self.max_pool_size = max_pool_size
         self.pools = RecentlyUsedContainer(
-            pool_connections, dispose_func=lambda p: p.close()
+            pool_connections, dispose_func=self.dispose
         )
         super().__init__()
+
+    def __getstate__(self):
+        r = super(UnixHTTPAdapter, self).__getstate__()
+        r['pools'] = None
+        return r
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.pools = RecentlyUsedContainer(
+            self._pool_connections, dispose_func=self.dispose
+        )
+
+    def dispose(p):
+        p.close()
 
     def get_connection(self, url, proxies=None):
         with self.pools.lock:
